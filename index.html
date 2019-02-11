@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+.link {
+  stroke: #000;
+}
+.node {
+  stroke: #fff;
+}
+
+
+</style>
+
+<body>
+<script type="text/javascript" src="d3.v4.min.js"></script>
+
+
+<script>
+
+
+
+var width = 960,
+    height = 500;
+
+var deselectAlpha = '33';
+var defaultAlpha = 'EE';
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    //.style("background-color", "black")
+    ;
+
+
+//set colours
+
+var personFill = '#000000';
+var personStroke = '#ffffff';
+
+var showFill = '#ffffff';
+var showStroke = '#11AA44';
+
+var networkStroke = '#ffffff';
+var networkFill = '#1144AA';
+
+var broadStroke = '#000000';
+var broadFill = '#ffffff';
+
+
+
+var nodesByName = {};
+var links = [];
+
+var textWidth = 300;
+var textHeight = 400;
+
+var testText = "Michelle's Experimental Audio Diagram (MEAD)";
+
+//courtesy Mike Bostock: utility fort dealing with descriptive text
+function wrap(text, width) {
+  text.each(function() {
+    var text = d3.select(this),
+        words = text.text().split(/\s+/).reverse(),
+        word,
+        line = [],
+        lineNumber = 0,
+        lineHeight = 1.1, // ems
+        y = text.attr("y"),
+        dy = parseFloat(text.attr("dy")),
+        tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
+    while (word = words.pop()) {
+      line.push(word);
+      tspan.text(line.join(" "));
+      if (tspan.node().getComputedTextLength() > (width-2*text.attr("dx"))) {
+        line.pop();
+        tspan.text(line.join(" "));
+        line = [word];
+        tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", ++lineNumber * lineHeight + dy + "em").attr("dx", text.attr("dx")).text(word);
+      }
+    }
+  });
+}
+
+	
+
+	/*
+		Utility functions for creating and organising nodes from raw data
+	*/	
+
+  function nodeByName(name) {
+    return nodesByName[name] || (nodesByName[name] = {name: name});
+  }
+
+  function nodeByNode(node, name) {
+    /*
+        look for a node within dict "nodesByName"
+       with the key "identifier"
+       If it doesn't exist create it as "identifier":node pair
+       Then we can retrieve the node using the identifier later, 
+       and keep a track of which identifiers exist while we populate a list of unique nodes
+       Also, if a node has an entry BUT NO NODE, add the node
+    */
+
+    //checks the name entry exists
+    if(!nodesByName[name]) nodesByName[name] = {id: name, node:node};
+    //checks the entry has a node!
+    if(!nodesByName[name].node) nodesByName[name].node = node;
+    //nodesByName[name] = {name: name, node:node};
+    return nodesByName[name];
+  }
+
+
+var g = svg.append("g")
+    .attr("class", "everything")
+    ;
+
+//create nodes and links from producers table
+//d3.csv("data/producers50.csv", function(error, reccs) {
+var filename = "data/SOUND MAP - audio experimenters - data - PEOPLE.csv"
+d3.csv(filename, function(error, lines) {  
+  lines.forEach(function(line) {
+
+  		
+   if(line.name.length>0) var s= nodeByNode(line, line.id);
+
+
+    /*
+    using this logic excludes orphan (unconnected) nodes
+
+    */
+
+    // var targetExists = false;
+    // if(recc.recommends_1.length>0) targetExists = true;
+    // if(recc.recommends_2.length>0) targetExists = true;
+    // if(recc.recommends_3.length>0) targetExists = true;
+    // if(recc.recommends_4.length>0) targetExists = true;
+    // if(recc.recommends_5.length>0) targetExists = true;
+
+    //   if(targetExists)
+    //   {
+    //     //console.log(recc.id);
+    //     var s= nodeByNode(recc, recc.id);
+       
+    //     //was target
+        // var t = nodeByName(recc.recommends_1);    
+        // //console.log(t);
+        // if(t.name.length>0)links.push({source: s, target: t, weight:0.1});
+
+        // t = nodeByName(recc.recommends_2);
+        // if(t.name.length>0)links.push({source: s, target: t, weight:0.1});
+
+        // t = nodeByName(recc.recommends_3);
+        // //console.log(t);
+        // if(t.name.length>0)links.push({source: s, target: t, weight:0.1});
+
+        // t = nodeByName(recc.recommends_4);
+        // //console.log(t);
+        // if(t.name.length>0)links.push({source: s, target: t, weight:0.1});
+
+        // t = nodeByName(recc.recommends_5);
+        // if(t.name.length>0)links.push({source: s, target: t, weight:0.1});
+    //   }
+
+
+     });
+  
+  console.log("forget asynchronous data loading, let's dance!");
+  //callback to do EVERYTHING ELSE
+  loadShows();
+
+});
+
+//console.log(nodesByName);
+
+function loadShows()
+{
+
+  /*
+      callback function within producer-load routine, to prevent wacky JS asynchronicity
+      don't forget the bracket!
+  */
+
+//d3.csv("data/audio1.csv", function(error, reccs) {
+	var filename = "data/SOUND MAP - audio experimenters - data - SHOWS.csv"
+	d3.csv(filename, function(error, reccs) {
+  	if (error) throw error;
+  	reccs.forEach(function(recc) {
+  	//create all nodes that have a name, not just ID
+  	if(recc.name.length>0) var s= nodeByNode(recc, recc.id);
+ 	});
+
+  	loadNetworks();
+  	
+ 	});
+
+
+	function loadNetworks()
+	{
+		var filename = "data/SOUND MAP - audio experimenters - data - NETWORKS.csv"
+		d3.csv(filename, function(error, reccs) {
+		  	if (error) throw error;
+		  	reccs.forEach(function(recc) {
+		  	//create all nodes that have a name, not just ID
+		  	if(recc.name.length>0) var s= nodeByNode(recc, recc.id);
+	 	});
+
+	  		loadBroadcasters();
+
+		});
+	}
+
+	function loadBroadcasters()
+	{
+		var filename = "data/SOUND MAP - audio experimenters - data - BROADCASTERS.csv"
+		d3.csv(filename, function(error, reccs) {
+		  	if (error) throw error;
+		  	reccs.forEach(function(recc) {
+		  	//create all nodes that have a name, not just ID
+		  	if(recc.name.length>0) var s= nodeByNode(recc, recc.id);
+		 	});
+
+			    console.log("forget asynchronous data loading, let's art!");
+			    setLinks();
+			    drawGraph();
+			});
+	}
+
+
+function setLinks()
+{
+    links = [];
+    console.log(nodesByName);
+    for(var s in nodesByName){
+      
+      var currentNode = nodesByName[s].node;
+      if(s[0]=='P')
+      {
+            //var t = currentNode.recommends_1;   
+            var pointers = currentNode.Shows.replace(/\s/g,'').split(",");
+            //console.log(pointers);
+            pointers.forEach(function(t){
+
+            	//var t = currentNode.Show;    
+            	//console.log(t);
+            	if(t.length>0) if(nodesByName[t]) links.push({"source": s, "target": t, "weight":0.5});
+      		
+      		});
+
+            pointers = currentNode.Networks.replace(/\s/g,'').split(",");
+            //console.log(pointers);
+            pointers.forEach(function(t){
+
+            	//var t = currentNode.Show;   
+            	console.log("Network splitting"); 
+            	console.log(t);
+            	if(t.length>0) if(nodesByName[t]) links.push({"source": s, "target": t, "weight":0.1});
+      		
+      		});
+
+            // t = currentNode.Network;    
+            // console.log(t);
+            // if(t.length>0) if(nodesByName[t]) links.push({"source": s, "target": t, "weight":0.1});
+      
+            pointers = currentNode.Broadcasters.replace(/\s/g,'').split(",");
+            //console.log(pointers);
+            pointers.forEach(function(t){
+
+            	//var t = currentNode.Show;    
+            	//console.log(t);
+            	if(t.length>0) if(nodesByName[t]) links.push({"source": s, "target": t, "weight":0.1});
+      		
+      		});
+
+            // t = currentNode.Broadcaster;    
+            // console.log(t);
+            // if(t.length>0) if(nodesByName[t]) links.push({"source": s, "target": t, "weight":0.1});
+            
+      }
+      
+      if(s[0]=='S')
+      {
+            //var t = currentNode.recommends_1;   
+          
+           var pointers = currentNode.Networks.replace(/\s/g,'').split(",");
+            //console.log(pointers);
+            pointers.forEach(function(t){
+
+            	//var t = currentNode.Show;   
+            	console.log("Network splitting"); 
+            	console.log(t);
+            	if(t.length>0) if(nodesByName[t]) links.push({"source": s, "target": t, "weight":3});
+      		
+      		});
+            
+      }
+
+      if(s[0]=='N')
+      {
+            //var t = currentNode.recommends_1;   
+          
+            var pointers = currentNode.Broadcasters.replace(/\s/g,'').split(",");
+            //console.log(pointers);
+            pointers.forEach(function(t){
+
+            	//var t = currentNode.Show;    
+            	//console.log(t);
+            	if(t.length>0) if(nodesByName[t]) links.push({"source": s, "target": t, "weight":0.1});
+      		
+      		});
+            
+      }
+    }
+    //console.log(links);
+    //console.log("links completed");
+
+}
+
+function drawGraph()
+{
+
+  console.log(links);
+  console.log("drawing started");
+
+  
+
+  var nodes = d3.values(nodesByName);
+  //console.log(nodes);
+
+  // Create the link lines.
+  var link = //svg.selectAll(".link")
+      g.append("g")
+      .attr("class", "links")
+      .selectAll("line")
+      .data(links)
+    .enter().append("line")
+      .attr("class", "link")
+      .style("stroke", function(d){
+      	//if(d.target[0]=='P') return personFill;
+        if(d.target[0]=='S') return showStroke;
+        if(d.target[0]=='N') return networkFill;
+        if(d.target[0]=='B') return broadStroke;
+      	//console.log(d.source);
+      	//return 'red';
+        //if(d.source[0]=='P') return '#00000000';
+        //if(d.id.name[0]=='P') return '#00000000';
+        //else return '#FF111100'; 
+        return 'black';
+      })
+      .style("stroke-width",3)
+      ;
+
+  // Create the node circles.
+  var node = //svg.selectAll(".node")
+      g.append("g")
+        .attr("class", "nodes") 
+        .selectAll("circle")
+      .data(nodes)
+    .enter().append("g")
+      .attr("class", "node");
+      //.call(force.drag);
+
+  //define background click (index -1)
+  svg.on("click", function(){
+        onClick(-1);
+      });
+
+  node.append("circle")
+    .attr("r", function(d)
+      {
+        if(d.id[0]=='P') return 10;
+        if(d.id[0]=='S') return 20;
+        if(d.id[0]=='N') return 30;
+        if(d.id[0]=='B') return 40;
+      })
+    .attr('stroke-width',function(d){
+    	if(d.id[0]=='P') return 2;
+        if(d.id[0]=='S') return 4;
+        if(d.id[0]=='N') return 2;
+        if(d.id[0]=='B') return 5;
+    })
+    .attr('stroke',function(d){
+    	if(d.id[0]=='P') return personStroke;
+        if(d.id[0]=='S') return showStroke;
+        if(d.id[0]=='N') return networkStroke;
+        if(d.id[0]=='B') return broadStroke;
+    })
+    .attr('fill', function(d)
+      {
+      	//console.log(d.id);
+        if(d.id[0]=='P') return personFill;
+        if(d.id[0]=='S') return showFill;
+        if(d.id[0]=='N') return networkFill;
+        if(d.id[0]=='B') return broadFill;
+      })
+    //.attr('stroke', "#FFFFFF55")
+    .on("click", function(d){
+        //console.log("xircle");
+        d3.event.stopPropagation();
+        var origin = d.id;
+        onClick(origin);
+        //console.log(d3.event.target.id);
+      }
+      )
+      ;
+
+      
+
+   node.append("text")
+      .style("font-size", 20)
+      .attr('stroke', '#00000000')
+      .attr("dx", function(d){
+        if(d.id[0]=='P') return 12;
+        	if(d.id[0]=='S') return 23;
+       	    if(d.id[0]=='N') return 34;
+        	if(d.id[0]=='B') return 45;
+      })
+      .attr("dx",function(d){
+            if(d.id[0]=='P') return 12;
+        	if(d.id[0]=='S') return 23;
+       	    if(d.id[0]=='N') return 34;
+        	if(d.id[0]=='B') return 45;
+      })
+      .attr('fill', function(d){
+        if(d.id[0]=='P') return personFill;
+        if(d.id[0]=='S') return showStroke;
+        if(d.id[0]=='N') return networkFill;
+        if(d.id[0]=='B') return broadStroke;
+      })
+      .text(function(d) { 
+         if(d.node) return d.node.name
+         else return d.name
+      });
+
+   
+var simulation = d3.forceSimulation()
+          .nodes(nodes);
+                         
+console.log(links);
+var link_force =  d3.forceLink(links)
+                        .id(function(d) {return d.id;})
+                        .distance(10)
+                        .strength(function(d){
+                          return d.weight;})
+                        //strength(1)
+                        ;           
+                        //console.log(link_force.data); 
+         
+var charge_force = d3.forceManyBody()
+    .strength(-3000)
+    //.strength(-1)
+    ; 
+    
+var center_force = d3.forceCenter(width / 2, height / 2);  
+
+//console.log(links[208]);
+
+simulation
+    .force("charge_force", charge_force)
+    .force("center_force", center_force)
+    .force("links",link_force)
+    .force("x_force", d3.forceX(width/2)
+      .strength(0.03)
+      )
+    .force("y_force", d3.forceY(height/2)
+      .strength(0.05)
+      )
+    .alpha(0.8)
+    .alphaDecay(0.001)
+ ;
+
+
+
+var iteration = 0;
+
+//add tick instructions: 
+simulation.on("tick", tick );
+  //console.log(iteration);
+  function tick() {
+    positions = [];
+
+    //console.log("positions");  
+    link
+        .attr("x1", function(d) { 
+          //console.log(d.source.x); 
+          return d.source.x; 
+        })
+        .attr("y1", function(d) { return d.source.y; })
+        .attr("x2", function(d) { return d.target.x; })
+        .attr("y2", function(d) { return d.target.y; });
+    
+      
+    //console.log(positions);
+
+
+    node.attr("cx", function(d) { return d.x; })
+        .attr("cy", function(d) { return d.y; });
+
+
+
+    node.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+    //node.attr("transform", function(d) { return "translate(" + 30 + "," + 30 + ")"; });
+
+    iteration++;
+  }
+
+
+/*
+*******		Print the legend
+*/
+
+// var legend2 = svg.append("g"); 
+// var legend2start = height-110;
+// var textStart = 42;
+// var spacing = 24;
+// legend2rect = 
+// 	legend2.append("rect")
+// 	.attr("y", legend2start)
+// 	.attr("x",  1)
+//     .attr("width", textWidth)
+//     .attr("height", 108)
+//     .attr("rx", 15)
+//     .attr("ry", 15)
+//     .attr("fill", "white")
+//     .attr("stroke", "black");
+
+// legend2.append("circle")
+// 	.attr("cx",20)
+// 	.attr("cy",legend2start+18)
+// 	.attr("r", 9)
+// 	.attr("fill", "blue")
+// ;
+
+// legend2.append("text")
+//     .data("Producer")
+//     .attr("x", textStart)
+//     .attr("y", legend2start+22)
+//     // .attr("dx", 7)
+//     // .attr("dy", 0)
+//     .attr("fill", "blue")
+//     .text("Producer");
+
+// legend2.append("circle")
+// 	.attr("cx",20)
+// 	.attr("cy",legend2start+18+spacing)
+// 	.attr("r", 9)
+// 	.attr("fill", "red")
+// ;
+
+// legend2.append("text")
+//     .data("Audio piece")
+//     .attr("x", textStart)
+//     .attr("y", legend2start+23+spacing)
+//     // .attr("dx", 7)
+//     // .attr("dy", 0)
+//     .attr("fill", "red")
+//     .text("Audio piece");
+
+
+// legend2.append("line").attr("x1", 10).attr("y1", legend2start+18+2*spacing)
+// 		.attr("x2", 30).attr("y2", legend2start+18+2*spacing)
+// 		.attr("stroke","red").attr("stroke-width",4);
+// legend2.append("text").attr("x", textStart).attr("y", legend2start+22+2*spacing).attr("fill", "red")
+// 		.text("Link to producer of piece");
+
+// legend2.append("line").attr("x1", 10).attr("y1", legend2start+18+3*spacing)
+// 		.attr("x2", 30).attr("y2", legend2start+18+3*spacing)
+// 		.attr("stroke","blue").attr("stroke-width",4);
+// legend2.append("text").attr("x", textStart).attr("y", legend2start+22+3*spacing).attr("fill", "blue")
+// 		.text("Recommendation by producer");
+  
+//>>>legend/labels
+//append("div").attr("overflow", "scroll").
+var legend = svg.append("g");
+
+legend.append("rect")
+    .attr("width", textWidth)
+    .attr("y",1)
+    .attr("x",1)
+    .attr("height", 40)
+    .attr("rx", 15)
+    .attr("ry", 15)
+    .attr("fill", "white")
+    .attr("stroke", "black");
+
+var legendText = legend.append("text")
+    .data(testText)
+    .attr("x", 40)
+    .attr("y", 20)
+    .attr("dx", 7)
+    .attr("dy", 0)
+    .text(testText)
+    .call(wrap, textWidth);
+
+/*
+*******		Stop the legend
+*/
+
+
+
+  // }
+
+  //add drag capabilities  
+var drag_handler = d3.drag()
+  .on("start", drag_start)
+  .on("drag", drag_drag)
+  .on("end", drag_end); 
+  
+drag_handler(node);
+
+
+//add zoom capabilities 
+var zoom_handler = d3.zoom()
+    .on("zoom", zoom_actions);
+zoom_handler(svg);
+zoom_handler.scaleTo(svg, 0.2);
+
+/** Functions **/
+
+
+//Drag functions 
+//d is the node 
+function drag_start(d) {
+ if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+    d.fx = d.x;
+    d.fy = d.y;
+}
+
+//make sure you can't drag the circle outside the box
+function drag_drag(d) {
+  d.fx = d3.event.x;
+  d.fy = d3.event.y;
+}
+
+function drag_end(d) {
+  if (!d3.event.active) simulation.alphaTarget(0);
+  d.fx = null;
+  d.fy = null;
+}
+
+//Zoom functions 
+function zoom_actions(){
+    g.attr("transform", d3.event.transform)
+}
+
+  function onClick(or)
+  {
+      var listOfNodes = [];
+
+       legend.selectAll("rect").transition().duration(1000).attr("height", 40);
+       legendText.text(testText).data("RadioNet").call(wrap, textWidth);
+      
+      link
+      .style('stroke', function(d){
+          var alpha = deselectAlpha;
+          //make links to and from the clicked node more opaque
+          
+          if(d.source.id==or || d.target.id==or || or<0)
+           {
+            alpha="FF";            
+            listOfNodes.push(d.source.id);
+            listOfNodes.push(d.target.id);
+          }
+
+         	 if(d.source.id==or || d.target.id==or) alpha = "FF";
+
+          	//if(d.source.id[0]=='P') return personFill+alpha;
+        	if(d.target.id[0]=='S') return showStroke+alpha;
+        	if(d.target.id[0]=='N') return networkFill+alpha;
+        	if(d.target.id[0]=='B') return broadStroke+alpha;
+
+          //producer and audio colour if
+          // if(d.source.id[0]=='P'){
+          //   if(d.source.id==or || d.target.id==or) alpha = "FF";
+          //   //else if(or<0) alpha = "00";
+          //   return '#0011FF'+alpha;
+          // }
+          // else return '#FF1111'+alpha;
+        })
+      .style("stroke-width",function(d)
+        {
+          var w = 3;
+          //if(d.source.id[0]=='A') w+=3;
+          if(d.source.id==or || d.target.id==or) w*=2
+          return w;
+        })
+      ;
+
+      node.each(function(d){
+        if(d.id==or) {
+           console.log(d);
+           //consistent URL naming
+          var info = d.node.name + " : ";
+          if(d.id[0]=='P' && d.node.Description.length>0) info = info + d.node.Description;
+
+          //if(d.id[0]=='P' && d.node.bio.length>0) info = info + d.node.bio;
+          //if(d.id[0]=='A' && d.node.description.length>0) info = info + d.node.description;
+
+          legend.selectAll("text").text(info).data(info).call(wrap, textWidth).transition();
+          //console.log(legendText.text().selectAll("tspan"));
+          legend.selectAll("rect").transition().duration(1000).attr("height", height-2);
+          legend.select("text").style("fill", "#00000000");
+          legend.select("text").transition().duration(700).delay(500).style("fill", "black");
+          //zoom_handler.translateBy(svg, (width/2)-d.node.x, (height/2)-d.node.y);
+          }
+
+      });
+     
+      node.selectAll('circle')
+      .attr('fill', function(d)
+        {
+	          var alpha = deselectAlpha;
+
+	          if(d.id==or) alpha="FF";
+	          else if(listOfNodes.indexOf(d.id)>-1) alpha = 'CC';
+
+	        if(d.id[0]=='P') return personFill+alpha;
+        	if(d.id[0]=='S') return showFill+alpha;
+        	if(d.id[0]=='N') return networkFill+alpha;
+        	if(d.id[0]=='B') return broadFill+alpha;
+
+        })
+      .attr('stroke', function(d)
+        {
+	          var alpha = deselectAlpha;
+
+	          if(d.id==or) alpha="FF";
+	          else if(listOfNodes.indexOf(d.id)>-1) alpha = defaultAlpha;
+
+	        if(d.id[0]=='P') return personStroke+alpha;
+        	if(d.id[0]=='S') return showStroke+alpha;
+        	if(d.id[0]=='N') return networkStroke+alpha;
+        	if(d.id[0]=='B') return broadStroke+alpha;
+
+        })
+      ;
+
+      node.selectAll('text')
+      .attr('fill', function(d)
+        {
+          var alpha = deselectAlpha;
+          if(d.id==or) alpha="FF";
+          else if(listOfNodes.indexOf(d.id)>-1) alpha = defaultAlpha;
+
+          	if(d.id[0]=='P') return personFill+alpha;
+        	if(d.id[0]=='S') return showStroke+alpha;
+        	if(d.id[0]=='N') return networkFill+alpha;
+        	if(d.id[0]=='B') return broadStroke+alpha;
+
+        });
+
+  }//onClick()
+
+}//drawGraphs
+
+
+
+//});
+
+}//callback
+
+</script>
